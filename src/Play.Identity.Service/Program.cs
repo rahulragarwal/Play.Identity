@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -5,6 +6,7 @@ using MongoDB.Bson.Serialization.Serializers;
 using Play.Common.MongoDB;
 using Play.Common.Settings;
 using Play.Identity.Service.Entities;
+using Play.Identity.Service.Settings;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -16,7 +18,12 @@ var builder = WebApplication.CreateBuilder(args);
 var mongoDbSettings = builder.Configuration.GetSection(nameof(MongoDbSettings)).Get<MongoDbSettings>();
 var serviceSettings = builder.Configuration.GetSection(nameof(ServiceSettings)).Get<ServiceSettings>();
 
+
+// var identityServerSettings = new IdentityServerSettings();
 BsonSerializer.RegisterSerializer(new GuidSerializer(BsonType.String));
+
+
+var identityServerSettings = builder.Configuration.GetSection(nameof(IdentityServerSettings)).Get<IdentityServerSettings>();
 
 builder.Services
 .AddDefaultIdentity<ApplicationUser>()
@@ -26,10 +33,37 @@ builder.Services
     mongoDbSettings.ConnectionString, serviceSettings.ServiceName
 );
 
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+.AddJwtBearer(options =>
+{
+    options.Authority = "https://localhost:5010";
+    options.Audience = serviceSettings.ServiceName;
+});
+
+
+builder.Services.AddIdentityServer(options =>
+{
+    options.Events.RaiseSuccessEvents = true;
+    options.Events.RaiseFailureEvents = true;
+    options.Events.RaiseErrorEvents = true;
+})
+.AddAspNetIdentity<ApplicationUser>()
+.AddInMemoryClients(identityServerSettings.Clients)
+.AddInMemoryApiScopes(identityServerSettings.ApiScopes)
+.AddInMemoryApiResources(identityServerSettings.ApiResources)
+.AddInMemoryIdentityResources(identityServerSettings.IdentityResources)
+.AddDeveloperSigningCredential();
+
+builder.Services.AddLocalApiAuthentication();
+
+
+
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+
 
 var app = builder.Build();
 
@@ -44,9 +78,8 @@ app.UseHttpsRedirection();
 
 app.UseStaticFiles();
 
-app.UseAuthentication();;
-
 app.UseAuthorization();
+app.UseIdentityServer();
 
 app.MapControllers();
 app.MapRazorPages();

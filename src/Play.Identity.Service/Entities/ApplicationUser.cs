@@ -4,8 +4,8 @@ using MongoDbGenericRepository.Attributes;
 namespace Play.Identity.Service.Entities
 {
     [CollectionName("Users")]
-    public class ApplicationUser :MongoIdentityUser<Guid>
+    public class ApplicationUser : MongoIdentityUser<Guid>
     {
-        public decimal Coins { get; set;}
+        public decimal Coins { get; set; }
     }
 }
